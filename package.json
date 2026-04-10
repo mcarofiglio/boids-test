@@ -4,8 +4,8 @@
   "description": "The JavaScript template",
   "scripts": {
     "start": "parcel ./src/index.html",
-    "build": "parcel build ./src/index.html --public-url ./",
-    "deploy": "npm run build && gh-pages -d dist"
+    "build": "parcel build ./src/index.html",
+    "deploy": "gh-pages -d src"
   },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
