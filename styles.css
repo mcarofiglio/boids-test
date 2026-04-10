@@ -1,0 +1,174 @@
+/* Core Canvas Reset */
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #050505;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+canvas {
+  display: block;
+}
+
+/* The Main Panel */
+#controls-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 260px;
+  background: rgba(25, 25, 25, 0.3);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(4px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  color: white;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  z-index: 10;
+}
+
+#controls-panel.collapsed {
+  max-height: 44px;
+}
+
+/* The Clickable Header */
+#controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+
+  /* Mobile tap enablers */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#toggle-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  pointer-events: none; /* Let the header handle the click */
+}
+
+#controls-panel.collapsed #toggle-btn {
+  transform: rotate(-90deg);
+}
+
+#controls-body {
+  padding: 15px;
+}
+
+.slider-group {
+  margin-bottom: 15px;
+}
+
+.slider-group label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #ccc;
+}
+
+.slider-group input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Tooltip styling */
+.tooltip {
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.6);
+  cursor: help;
+}
+
+/* Optional: change color slightly on hover to make it feel reactive */
+.tooltip:hover {
+  color: #00ffcc;
+  border-bottom: 1px dotted #00ffcc;
+}
+
+/* --- GLOBAL TOOLTIP --- */
+.tooltip-container {
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.6);
+  cursor: help;
+  display: inline-block;
+  transition: color 0.2s;
+}
+
+.tooltip-container:hover {
+  color: #00ffcc;
+  border-bottom: 1px dotted #00ffcc;
+}
+
+#global-tooltip {
+  position: fixed;
+  background-color: #222;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid #444;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+  width: max-content;
+  max-width: 200px;
+  z-index: 9999; /* Always on top of everything */
+  pointer-events: none; /* Prevents the tooltip from blocking mouse clicks */
+
+  /* Centering logic */
+  transform: translateY(-100%);
+
+  /* Fade animation */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+#global-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* --- RESET BUTTON --- */
+#reset-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  transition: background 0.2s, transform 0.1s;
+}
+
+#reset-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#reset-btn:active {
+  transform: scale(0.97); /* Satisfying little click animation */
+}
+
+.badge {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: normal;
+  color: #eee;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums; /* Keeps numbers from shifting the box width */
+}
