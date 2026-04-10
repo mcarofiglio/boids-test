@@ -117,51 +117,60 @@
             value="0.2"
           />
         </div>
-        <div
-          class="slider-group"
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 15px;
-            margin-bottom: 5px;
-          "
-        >
-          <label style="margin: 0; cursor: pointer">
-            <span
-              class="tooltip-container"
-              data-tooltip="Leaves a glowing motion trail behind the flock."
-              >Light Trails</span
-            >
+        <div class="slider-group">
+          <label>
+            <span class="tooltip-container" data-tooltip="Limits each boid's vision to a forward-facing cone. 360° = full vision, 180° = forward only.">Field of View:</span>
+            <span id="fov-val">360</span>°
           </label>
-          <input
-            type="checkbox"
-            id="trail-checkbox"
-            style="width: auto; cursor: pointer"
-          />
+          <input type="range" id="fov-slider" min="0" max="360" step="10" value="360" />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span class="tooltip-container" data-tooltip="Horizontal wind force. Positive pushes right, negative pushes left.">Wind X:</span>
+            <span id="wind-x-val">0.0</span>
+          </label>
+          <input type="range" id="wind-x-slider" min="-1" max="1" step="0.1" value="0" />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span class="tooltip-container" data-tooltip="Vertical wind force. Positive pushes down, negative pushes up.">Wind Y:</span>
+            <span id="wind-y-val">0.0</span>
+          </label>
+          <input type="range" id="wind-y-slider" min="-1" max="1" step="0.1" value="0" />
         </div>
         <div
           class="slider-group"
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 15px;
-            margin-bottom: 15px;
-          "
+          style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px; margin-bottom: 5px;"
         >
           <label style="margin: 0; cursor: pointer">
-            <span
-              class="tooltip-container"
-              data-tooltip="Visualizes the Quadtree spatial partitioning grid."
-              >Show Quadtree</span
-            >
+            <span class="tooltip-container" data-tooltip="Leaves a glowing motion trail behind the flock.">Light Trails</span>
           </label>
-          <input
-            type="checkbox"
-            id="tree-checkbox"
-            style="width: auto; cursor: pointer"
-          />
+          <input type="checkbox" id="trail-checkbox" style="width: auto; cursor: pointer" />
+        </div>
+        <div
+          class="slider-group"
+          style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px;"
+        >
+          <label style="margin: 0; cursor: pointer">
+            <span class="tooltip-container" data-tooltip="Visualizes the Quadtree spatial partitioning grid.">Show Quadtree</span>
+          </label>
+          <input type="checkbox" id="tree-checkbox" style="width: auto; cursor: pointer" />
+        </div>
+        <div
+          class="slider-group"
+          style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px; margin-bottom: 15px;"
+        >
+          <label style="margin: 0; cursor: pointer">
+            <span class="tooltip-container" data-tooltip="Boids bounce off screen edges instead of wrapping around.">Edge Bounce</span>
+          </label>
+          <input type="checkbox" id="bounce-checkbox" style="width: auto; cursor: pointer" />
+        </div>
+        <div style="font-size: 11px; opacity: 0.6; margin-bottom: 6px;">Presets</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+          <button id="preset-murmuration">Murmuration</button>
+          <button id="preset-chaos">Chaos</button>
+          <button id="preset-calm">Calm</button>
+          <button id="preset-hunt" style="color: beige; background: rgba(255,50,50,0.2); border-color: rgba(255,50,50,0.4);">Hunt</button>
         </div>
         <button id="reset-btn">Reset Defaults</button>
         <button
