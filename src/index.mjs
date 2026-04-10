@@ -8,6 +8,10 @@ const defaultParams = {
   jitter: 0.2,
   trails: false,
   showTree: false,
+  fov: 360,
+  windX: 0,
+  windY: 0,
+  edgeBounce: false,
 };
 
 const params = { ...defaultParams };
@@ -423,6 +427,13 @@ class Boid {
     let maxNeighbors = 20; // Ignore anything past 20 boids
     const radiusSq = perceptionRadius * perceptionRadius;
 
+    // Vision cone: precompute cos(halfFOV) — skip check entirely at 360°
+    const skipFovCheck = params.fov >= 360;
+    const cosHalfFov = skipFovCheck ? 0 : Math.cos(params.fov * Math.PI / 360);
+    const velMag = skipFovCheck ? 0 : Math.sqrt(
+      this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y
+    );
+
     for (let other of localBoids) {
       if (other === this) continue;
       const ox = other.position.x - this.position.x;
@@ -430,6 +441,11 @@ class Boid {
       const dSq = ox * ox + oy * oy;
       if (dSq < radiusSq) {
         const d = Math.sqrt(dSq);
+        // Exclude neighbors outside the forward vision cone
+        if (!skipFovCheck && velMag > 0) {
+          const dot = (this.velocity.x * ox + this.velocity.y * oy) / (velMag * d);
+          if (dot < cosHalfFov) continue;
+        }
         alignment.add(other.velocity);
         cohesion.add(other.position);
         _flockDiff.x = -ox;
@@ -516,10 +532,25 @@ class Boid {
     // Map that ratio to a hue between 240 (Blue) and 0 (Red)
     this.hue = (lifeRatio * 300) | 0;
 
-    if (this.position.x > width) this.position.x = 0;
-    if (this.position.x < 0) this.position.x = width;
-    if (this.position.y > height) this.position.y = 0;
-    if (this.position.y < 0) this.position.y = height;
+    if (params.edgeBounce) {
+      const margin = 80, force = 0.3;
+      if (this.position.x < margin)
+        this.acceleration.x += force * (1 - this.position.x / margin);
+      if (this.position.x > width - margin)
+        this.acceleration.x -= force * (1 - (width - this.position.x) / margin);
+      if (this.position.y < margin)
+        this.acceleration.y += force * (1 - this.position.y / margin);
+      if (this.position.y > height - margin)
+        this.acceleration.y -= force * (1 - (height - this.position.y) / margin);
+      // Clamp so boids stay inside the QuadTree boundary
+      this.position.x = Math.max(0, Math.min(width, this.position.x));
+      this.position.y = Math.max(0, Math.min(height, this.position.y));
+    } else {
+      if (this.position.x > width) this.position.x = 0;
+      if (this.position.x < 0) this.position.x = width;
+      if (this.position.y > height) this.position.y = 0;
+      if (this.position.y < 0) this.position.y = height;
+    }
 
     // --- NEW: AGING LOGIC ---
     this.life--;
@@ -537,10 +568,18 @@ class Boid {
   }
 
   draw(ctx) {
+    const angle = Math.atan2(this.velocity.y, this.velocity.x);
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(angle);
     ctx.beginPath();
-    ctx.arc(this.position.x, this.position.y, 2, 0, Math.PI * 2);
+    ctx.moveTo(5, 0);      // tip (front)
+    ctx.lineTo(-3, 2.5);   // back-left fin
+    ctx.lineTo(-3, -2.5);  // back-right fin
+    ctx.closePath();
     ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${this.opacity})`;
     ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -685,6 +724,8 @@ function animate(timestamp) {
     boid._neighbors = localBoids; // cache for connections loop below
 
     boid.flock(localBoids);
+    if (params.windX !== 0) boid.acceleration.x += params.windX * 0.05;
+    if (params.windY !== 0) boid.acceleration.y += params.windY * 0.05;
     boid.evade(predators);
     boid.update(width, height);
     boid.draw(ctx);
@@ -774,11 +815,14 @@ function setupUI() {
   // 3. SLIDER BINDINGS
   // ==========================================
   const bindings = [
-    { id: "sep", key: "separation" },
-    { id: "ali", key: "alignment" },
-    { id: "coh", key: "cohesion" },
-    { id: "rad", key: "radius" },
-    { id: "jit", key: "jitter" },
+    { id: "sep",    key: "separation", decimals: 1 },
+    { id: "ali",    key: "alignment",  decimals: 1 },
+    { id: "coh",    key: "cohesion",   decimals: 1 },
+    { id: "rad",    key: "radius",     decimals: 0 },
+    { id: "jit",    key: "jitter",     decimals: 1 },
+    { id: "fov",    key: "fov",        decimals: 0 },
+    { id: "wind-x", key: "windX",      decimals: 1 },
+    { id: "wind-y", key: "windY",      decimals: 1 },
   ];
 
   bindings.forEach((bind) => {
@@ -790,7 +834,7 @@ function setupUI() {
     slider.addEventListener("input", (e) => {
       const val = parseFloat(e.target.value);
       params[bind.key] = val;
-      valueDisplay.innerText = val.toFixed(bind.id === "rad" ? 0 : 1);
+      valueDisplay.innerText = val.toFixed(bind.decimals);
     });
   });
 
@@ -806,6 +850,28 @@ function setupUI() {
     treeCheckbox.addEventListener("change", (e) => {
       params.showTree = e.target.checked;
     });
+  }
+
+  const bounceCheckbox = document.getElementById("bounce-checkbox");
+  if (bounceCheckbox) {
+    bounceCheckbox.addEventListener("change", (e) => {
+      params.edgeBounce = e.target.checked;
+    });
+  }
+
+  // Syncs all slider and checkbox UI to the current params state
+  function syncUI() {
+    bindings.forEach((bind) => {
+      const slider = document.getElementById(`${bind.id}-slider`);
+      const valueDisplay = document.getElementById(`${bind.id}-val`);
+      if (slider && valueDisplay) {
+        slider.value = params[bind.key];
+        valueDisplay.innerText = params[bind.key].toFixed(bind.decimals);
+      }
+    });
+    if (trailCheckbox) trailCheckbox.checked = params.trails;
+    if (treeCheckbox) treeCheckbox.checked = params.showTree;
+    if (bounceCheckbox) bounceCheckbox.checked = params.edgeBounce;
   }
 
   // ==========================================
@@ -839,24 +905,37 @@ function setupUI() {
   });
 
   const resetBtn = document.getElementById("reset-btn");
-
   resetBtn.addEventListener("click", () => {
-    // 1. Overwrite the active params with the default params
     Object.assign(params, defaultParams);
+    syncUI();
+  });
 
-    // 2. Loop through the sliders and physically move them back
-    bindings.forEach((bind) => {
-      const slider = document.getElementById(`${bind.id}-slider`);
-      const valueDisplay = document.getElementById(`${bind.id}-val`);
+  // ==========================================
+  // 5. PRESETS
+  // ==========================================
+  const presets = {
+    murmuration: { separation: 0.8, alignment: 3.0, cohesion: 2.0, radius: 100, jitter: 0.05, fov: 270 },
+    chaos:       { separation: 0.3, alignment: 0.1, cohesion: 0.0, radius: 30,  jitter: 3.0,  trails: true },
+    calm:        { separation: 1.5, alignment: 0.8, cohesion: 0.5, radius: 70,  jitter: 0.0,  trails: true },
+    hunt:        { separation: 1.8, alignment: 1.0, cohesion: 0.6, radius: 50,  jitter: 0.1 },
+  };
 
-      if (slider && valueDisplay) {
-        slider.value = params[bind.key]; // Move the slider nub
-        valueDisplay.innerText = params[bind.key].toFixed(
-          bind.id === "rad" ? 0 : 1
-        ); // Update the text
+  function applyPreset(name) {
+    Object.assign(params, defaultParams, presets[name]);
+    syncUI();
+  }
+
+  ["murmuration", "chaos", "calm", "hunt"].forEach((name) => {
+    const btn = document.getElementById(`preset-${name}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      applyPreset(name);
+      if (name === "hunt") {
+        predators.length = 0;
+        predators.push(new Predator(width * 0.25, height * 0.5));
+        predators.push(new Predator(width * 0.75, height * 0.25));
+        predators.push(new Predator(width * 0.75, height * 0.75));
       }
-      if (trailCheckbox) trailCheckbox.checked = false;
-      if (treeCheckbox) treeCheckbox.checked = false;
     });
   });
 
