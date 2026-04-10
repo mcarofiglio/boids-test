@@ -7,6 +7,7 @@ const defaultParams = {
   radius: 50,
   jitter: 0.2,
   trails: false,
+  showTree: false,
 };
 
 const params = { ...defaultParams };
@@ -114,9 +115,11 @@ class Vector {
     return this;
   }
   limit(max) {
-    if (this.mag() > max) {
-      this.normalize();
-      this.mult(max);
+    const mSq = this.x * this.x + this.y * this.y;
+    if (mSq > max * max) {
+      const inv = max / Math.sqrt(mSq);
+      this.x *= inv;
+      this.y *= inv;
     }
     return this;
   }
@@ -168,8 +171,8 @@ class Rectangle {
     if (xDist <= this.w) return true;
     if (yDist <= this.h) return true;
 
-    let cornersq = Math.pow(xDist - this.w, 2) + Math.pow(yDist - this.h, 2);
-    return cornersq <= Math.pow(r, 2);
+    const cx = xDist - this.w, cy = yDist - this.h;
+    return cx * cx + cy * cy <= r * r;
   }
 }
 
@@ -178,14 +181,14 @@ class Circle {
     this.x = x;
     this.y = y;
     this.r = r;
+    this.rSq = r * r;
   }
 
   contains(item) {
-    let px = item.position ? item.position.x : item.x;
-    let py = item.position ? item.position.y : item.y;
-
-    let d = Math.pow(px - this.x, 2) + Math.pow(py - this.y, 2);
-    return d <= Math.pow(this.r, 2);
+    const px = item.position ? item.position.x : item.x;
+    const py = item.position ? item.position.y : item.y;
+    const dx = px - this.x, dy = py - this.y;
+    return dx * dx + dy * dy <= this.rSq;
   }
 }
 
@@ -338,6 +341,13 @@ class Predator {
       let steer = new Vector(desired.x, desired.y).sub(this.velocity);
       steer.limit(this.maxForce);
       this.acceleration.add(steer);
+
+      // Kill check: if close enough, eat the boid
+      let killRadius = 8;
+      if (Vector.dist(this.position, this.target.position) < killRadius) {
+        this.target.isDead = true;
+        this.target = null;
+      }
     }
   }
 
@@ -401,25 +411,31 @@ class Boid {
   flock(localBoids) {
     // Read from our global params object!
     let perceptionRadius = params.radius;
-    let alignment = new Vector(0, 0);
-    let cohesion = new Vector(0, 0);
-    let separation = new Vector(0, 0);
+    _flockAlignment.x  = _flockAlignment.y  = 0;
+    _flockCohesion.x   = _flockCohesion.y   = 0;
+    _flockSeparation.x = _flockSeparation.y = 0;
+    const alignment  = _flockAlignment;
+    const cohesion   = _flockCohesion;
+    const separation = _flockSeparation;
     let total = 0;
 
     // --- NEW: THE NEIGHBOR CAP ---
     let maxNeighbors = 20; // Ignore anything past 20 boids
+    const radiusSq = perceptionRadius * perceptionRadius;
 
     for (let other of localBoids) {
       if (other === this) continue;
-      let d = Vector.dist(this.position, other.position);
-      if (other !== this && d < perceptionRadius) {
+      const ox = other.position.x - this.position.x;
+      const oy = other.position.y - this.position.y;
+      const dSq = ox * ox + oy * oy;
+      if (dSq < radiusSq) {
+        const d = Math.sqrt(dSq);
         alignment.add(other.velocity);
         cohesion.add(other.position);
-        let diff = new Vector(this.position.x, this.position.y).sub(
-          other.position
-        );
-        diff.mult(1 / d);
-        separation.add(diff);
+        _flockDiff.x = -ox;
+        _flockDiff.y = -oy;
+        _flockDiff.normalize().mult(1 / d);
+        separation.add(_flockDiff);
         total++;
         if (total >= maxNeighbors) break;
       }
@@ -453,13 +469,9 @@ class Boid {
     this.acceleration.add(cohesion.mult(params.cohesion));
 
     // --- NEW: THE CHAOS IMPULSE ---
-    // Create a random vector pointing in any direction (-1 to 1)
-    let randomNudge = new Vector(
-      (Math.random() - 0.5) * 2,
-      (Math.random() - 0.5) * 2
-    );
-    // Multiply it by the slider value and add it to the steering forces
-    this.acceleration.add(randomNudge.mult(params.jitter));
+    _jitterNudge.x = (Math.random() - 0.5) * 2;
+    _jitterNudge.y = (Math.random() - 0.5) * 2;
+    this.acceleration.add(_jitterNudge.mult(params.jitter));
   }
 
   // --- NEW: EVASION LOGIC ---
@@ -492,9 +504,9 @@ class Boid {
   }
 
   update(width, height) {
-    this.position.add(this.velocity);
     this.velocity.add(this.acceleration);
     this.velocity.limit(this.maxSpeed);
+    this.position.add(this.velocity);
     this.acceleration.mult(0);
 
     // --- NEW: AGE-BASED COLOR MAPPING ---
@@ -502,7 +514,7 @@ class Boid {
     let lifeRatio = this.life / this.maxLife;
 
     // Map that ratio to a hue between 240 (Blue) and 0 (Red)
-    this.hue = lifeRatio * 300;
+    this.hue = (lifeRatio * 300) | 0;
 
     if (this.position.x > width) this.position.x = 0;
     if (this.position.x < 0) this.position.x = width;
@@ -531,6 +543,13 @@ class Boid {
     ctx.fill();
   }
 }
+
+// --- SCRATCH VECTORS (reused every frame to avoid GC pressure) ---
+const _flockAlignment  = new Vector(0, 0);
+const _flockCohesion   = new Vector(0, 0);
+const _flockSeparation = new Vector(0, 0);
+const _flockDiff       = new Vector(0, 0);
+const _jitterNudge     = new Vector(0, 0);
 
 // --- 4. THE ENGINE & LOOP ---
 const canvas = document.getElementById("boidsCanvas");
@@ -591,16 +610,17 @@ function animate(timestamp) {
   // 2. Create the Quadtree with a capacity of 4
   let qtree = new QuadTree(boundary, 4);
 
-  // --- NEW: UPDATE PREDATORS ---
+  // 3. Insert every alive boid into the tree
+  for (let boid of flock) {
+    if (!boid.isDead) qtree.insert(boid);
+  }
+
+  // --- UPDATE PREDATORS ---
   // Because there are usually only 1-3 predators, we don't need them in the tree.
   for (let p of predators) {
     p.hunt(qtree, flock); // Pass 'flock' so it can check for ghosts!
     p.update(width, height);
     p.draw(ctx);
-  }
-  // 3. Insert every alive boid into the tree
-  for (let boid of flock) {
-    qtree.insert(boid);
   }
 
   // --- NEW: DRAW THE TREE ---
@@ -611,7 +631,7 @@ function animate(timestamp) {
   // ---------------------------------
   // 1. Spawning Boids (Left Click Hold)
   if (mouse.isLeftDown) {
-    // Prevent the browser from crashing by capping the max population at 400
+    // Prevent the browser from crashing by capping the max population at 2000
     let offsetX1 = (Math.random() - 0.5) * 30;
     let offsetY1 = (Math.random() - 0.5) * 30;
     let offsetX2 = (Math.random() - 0.5) * 30;
@@ -658,9 +678,11 @@ function animate(timestamp) {
     sharedQueryCircle.x = boid.position.x;
     sharedQueryCircle.y = boid.position.y;
     sharedQueryCircle.r = params.radius;
+    sharedQueryCircle.rSq = params.radius * params.radius;
 
     // Pass the shared circle into the query
     let localBoids = qtree.query(sharedQueryCircle);
+    boid._neighbors = localBoids; // cache for connections loop below
 
     boid.flock(localBoids);
     boid.evade(predators);
@@ -669,36 +691,28 @@ function animate(timestamp) {
   }
 
   // Geometric Connections
+  // One beginPath/stroke per boid instead of per line — ~7x fewer GPU flushes.
+  // Neighbors are reused from the flock loop above; no second QuadTree query needed.
   for (let boid of flock) {
-    sharedQueryCircle.x = boid.position.x;
-    sharedQueryCircle.y = boid.position.y;
-    sharedQueryCircle.r = params.radius;
-
-    let localBoids = qtree.query(sharedQueryCircle);
-
-    // --- NEW: THE RENDER CAP ---
     let linesDrawn = 0;
-    let maxLines = 7; // Only draw lines to 5 neighbors max
+    const maxLines = 7;
 
-    for (let neighbor of localBoids) {
-      if (boid !== neighbor) {
-        let d = Vector.dist(boid.position, neighbor.position);
-        if (d < params.radius) {
-          let boidAlpha = Math.min(boid.opacity, neighbor.opacity);
-          let lineAlpha = (1 - d / params.radius) * boidAlpha;
+    ctx.beginPath();
+    ctx.strokeStyle = `hsla(${boid.hue}, 100%, 60%, ${boid.opacity * 0.7})`;
+    ctx.lineWidth = 0.5;
 
-          ctx.beginPath();
-          ctx.moveTo(boid.position.x, boid.position.y);
-          ctx.lineTo(neighbor.position.x, neighbor.position.y);
-          ctx.strokeStyle = `hsla(${boid.hue}, 100%, 60%, ${lineAlpha})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-          linesDrawn++;
-          // Stop drawing once this boid has enough connections!
-          if (linesDrawn >= maxLines) break;
-        }
-      }
+    for (let neighbor of boid._neighbors) {
+      if (boid === neighbor) continue;
+      // Skip lines that cross the screen wrap boundary
+      const dx = Math.abs(boid.position.x - neighbor.position.x);
+      const dy = Math.abs(boid.position.y - neighbor.position.y);
+      if (dx > params.radius || dy > params.radius) continue;
+      ctx.moveTo(boid.position.x, boid.position.y);
+      ctx.lineTo(neighbor.position.x, neighbor.position.y);
+      if (++linesDrawn >= maxLines) break;
     }
+
+    ctx.stroke();
   }
 
   // --- NEW: THE REAPER (Cleanup & Rebirth) ---
@@ -841,10 +855,8 @@ function setupUI() {
           bind.id === "rad" ? 0 : 1
         ); // Update the text
       }
-      if (treeCheckbox) {
-        treeCheckbox.checked = false;
-      }
       if (trailCheckbox) trailCheckbox.checked = false;
+      if (treeCheckbox) treeCheckbox.checked = false;
     });
   });
 
