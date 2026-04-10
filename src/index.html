@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Abstract Colorful Boids</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="controls-panel">
+      <div id="controls-header">
+        <div style="display: flex; align-items: center">
+          <span>Settings</span>
+          <span
+            id="fps-counter"
+            class="badge"
+            style="margin-left: 10px; color: #00ffcc"
+            >60 FPS</span
+          >
+          <span id="boid-counter" class="badge" style="margin-left: 5px"
+            >0 Boids</span
+          >
+        </div>
+        <button id="toggle-btn">▼</button>
+      </div>
+      <div id="controls-body">
+        <div class="slider-group">
+          <label>
+            <span
+              class="tooltip-container"
+              data-tooltip="Steer to avoid crowding nearby flockmates."
+              >Separation:</span
+            >
+            <span id="sep-val">1.5</span>
+          </label>
+          <input
+            type="range"
+            id="sep-slider"
+            min="0"
+            max="5"
+            step="0.1"
+            value="1.5"
+          />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span
+              class="tooltip-container"
+              data-tooltip="Steer towards the average heading of local flockmates."
+              >Alignment:</span
+            >
+            <span id="ali-val">1.5</span>
+          </label>
+          <input
+            type="range"
+            id="ali-slider"
+            min="0"
+            max="5"
+            step="0.1"
+            value="1.5"
+          />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span
+              class="tooltip-container"
+              data-tooltip="Steer to move towards the center of mass of local flockmates."
+              >Cohesion:</span
+            >
+            <span id="coh-val">1.0</span>
+          </label>
+          <input
+            type="range"
+            id="coh-slider"
+            min="0"
+            max="5"
+            step="0.1"
+            value="1.0"
+          />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span
+              class="tooltip-container"
+              data-tooltip="How far a boid can see to detect its neighbors."
+              >Perception Radius:</span
+            >
+            <span id="rad-val">50</span>
+          </label>
+          <input
+            type="range"
+            id="rad-slider"
+            min="10"
+            max="200"
+            step="1"
+            value="50"
+          />
+        </div>
+        <div class="slider-group">
+          <label>
+            <span
+              class="tooltip-container"
+              data-tooltip="Adds random steering forces for unpredictable, organic movement."
+              >Chaos (Jitter):</span
+            >
+            <span id="jit-val">0.2</span>
+          </label>
+          <input
+            type="range"
+            id="jit-slider"
+            min="0"
+            max="3"
+            step="0.1"
+            value="0.2"
+          />
+        </div>
+        <div
+          class="slider-group"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+            margin-bottom: 5px;
+          "
+        >
+          <label style="margin: 0; cursor: pointer">
+            <span
+              class="tooltip-container"
+              data-tooltip="Leaves a glowing motion trail behind the flock."
+              >Light Trails</span
+            >
+          </label>
+          <input
+            type="checkbox"
+            id="trail-checkbox"
+            style="width: auto; cursor: pointer"
+          />
+        </div>
+        <div
+          class="slider-group"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+            margin-bottom: 15px;
+          "
+        >
+          <label style="margin: 0; cursor: pointer">
+            <span
+              class="tooltip-container"
+              data-tooltip="Visualizes the Quadtree spatial partitioning grid."
+              >Show Quadtree</span
+            >
+          </label>
+          <input
+            type="checkbox"
+            id="tree-checkbox"
+            style="width: auto; cursor: pointer"
+          />
+        </div>
+        <button id="reset-btn">Reset Defaults</button>
+        <button
+          id="predator-btn"
+          style="
+            color: beige;
+            background: rgba(255, 50, 50, 0.2);
+            border-color: rgba(255, 50, 50, 0.4);
+            margin-top: 10px;
+          "
+        >
+          Spawn Predator
+        </button>
+      </div>
+    </div>
+
+    <canvas id="boidsCanvas"></canvas>
+    <script src="./index.mjs"></script>
+  </body>
+</html>
